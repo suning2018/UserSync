@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
-namespace PersonnelSync.Services
+namespace UserSync.Services
 {
     /// <summary>
     /// 人员数据同步服务
@@ -154,7 +154,7 @@ namespace PersonnelSync.Services
                 if (_databaseLogService != null)
                 {
                     await _databaseLogService.LogInformationAsync(
-                        result.Message, "PersonnelSync", "SyncSysUserEnabledMark", null, "ExecuteSync");
+                        result.Message, "UserSync", "SyncSysUserEnabledMark", null, "ExecuteSync");
                 }
             }
             catch (Exception ex)
@@ -170,7 +170,7 @@ namespace PersonnelSync.Services
                 if (_databaseLogService != null)
                 {
                     await _databaseLogService.LogErrorAsync(
-                        $"同步失败：{result.TaskName}", ex, "PersonnelSync", "SyncSysUserEnabledMark", null, "ExecuteSync");
+                        $"同步失败：{result.TaskName}", ex, "UserSync", "SyncSysUserEnabledMark", null, "ExecuteSync");
                 }
             }
 
@@ -219,7 +219,7 @@ namespace PersonnelSync.Services
                 if (_databaseLogService != null)
                 {
                     await _databaseLogService.LogInformationAsync(
-                        result.Message, "PersonnelSync", "SyncBasePeopleJobStatus", null, "ExecuteSync");
+                        result.Message, "UserSync", "SyncBasePeopleJobStatus", null, "ExecuteSync");
                 }
             }
             catch (Exception ex)
@@ -235,7 +235,7 @@ namespace PersonnelSync.Services
                 if (_databaseLogService != null)
                 {
                     await _databaseLogService.LogErrorAsync(
-                        $"同步失败：{result.TaskName}", ex, "PersonnelSync", "SyncBasePeopleJobStatus", null, "ExecuteSync");
+                        $"同步失败：{result.TaskName}", ex, "UserSync", "SyncBasePeopleJobStatus", null, "ExecuteSync");
                 }
             }
 
@@ -274,7 +274,7 @@ namespace PersonnelSync.Services
                 if (_databaseLogService != null)
                 {
                     await _databaseLogService.LogInformationAsync(
-                        result.Message, "PersonnelSync", "SyncBasePeopleSysUser", null, "ExecuteSync");
+                        result.Message, "UserSync", "SyncBasePeopleSysUser", null, "ExecuteSync");
                 }
             }
             catch (Exception ex)
@@ -290,7 +290,7 @@ namespace PersonnelSync.Services
                 if (_databaseLogService != null)
                 {
                     await _databaseLogService.LogErrorAsync(
-                        $"同步失败：{result.TaskName}", ex, "PersonnelSync", "SyncBasePeopleSysUser", null, "ExecuteSync");
+                        $"同步失败：{result.TaskName}", ex, "UserSync", "SyncBasePeopleSysUser", null, "ExecuteSync");
                 }
             }
 
@@ -356,7 +356,7 @@ namespace PersonnelSync.Services
                 if (_databaseLogService != null)
                 {
                     await _databaseLogService.LogInformationAsync(
-                        result.Message, "PersonnelSync", "SyncBasePeopleManufactureGroup", null, "ExecuteSync");
+                        result.Message, "UserSync", "SyncBasePeopleManufactureGroup", null, "ExecuteSync");
                 }
             }
             catch (Exception ex)
@@ -372,7 +372,7 @@ namespace PersonnelSync.Services
                 if (_databaseLogService != null)
                 {
                     await _databaseLogService.LogErrorAsync(
-                        $"同步失败：{result.TaskName}", ex, "PersonnelSync", "SyncBasePeopleManufactureGroup", null, "ExecuteSync");
+                        $"同步失败：{result.TaskName}", ex, "UserSync", "SyncBasePeopleManufactureGroup", null, "ExecuteSync");
                 }
             }
 
@@ -559,7 +559,7 @@ namespace PersonnelSync.Services
                 if (_databaseLogService != null)
                 {
                     await _databaseLogService.LogInformationAsync(
-                        result.Message, "PersonnelSync", "SyncNewUsersFromVps", null, "ExecuteSync");
+                        result.Message, "UserSync", "SyncNewUsersFromVps", null, "ExecuteSync");
                 }
             }
             catch (Exception ex)
@@ -575,7 +575,7 @@ namespace PersonnelSync.Services
                 if (_databaseLogService != null)
                 {
                     await _databaseLogService.LogErrorAsync(
-                        $"同步失败：{result.TaskName}", ex, "PersonnelSync", "SyncNewUsersFromVps", null, "ExecuteSync");
+                        $"同步失败：{result.TaskName}", ex, "UserSync", "SyncNewUsersFromVps", null, "ExecuteSync");
                 }
             }
 
@@ -644,7 +644,7 @@ namespace PersonnelSync.Services
                 if (_databaseLogService != null)
                 {
                     await _databaseLogService.LogInformationAsync(
-                        result.Message, "PersonnelSync", "GenerateUserLogOn", null, "ExecuteSync");
+                        result.Message, "UserSync", "GenerateUserLogOn", null, "ExecuteSync");
                 }
             }
             catch (Exception ex)
@@ -660,7 +660,7 @@ namespace PersonnelSync.Services
                 if (_databaseLogService != null)
                 {
                     await _databaseLogService.LogErrorAsync(
-                        $"生成失败：{result.TaskName}", ex, "PersonnelSync", "GenerateUserLogOn", null, "ExecuteSync");
+                        $"生成失败：{result.TaskName}", ex, "UserSync", "GenerateUserLogOn", null, "ExecuteSync");
                 }
             }
 
@@ -830,7 +830,7 @@ namespace PersonnelSync.Services
                 if (_databaseLogService != null)
                 {
                     await _databaseLogService.LogInformationAsync(
-                        result.Message, "PersonnelSync", "SyncBasePeopleFromVps", null, "ExecuteSync");
+                        result.Message, "UserSync", "SyncBasePeopleFromVps", null, "ExecuteSync");
                 }
             }
             catch (Exception ex)
@@ -846,7 +846,7 @@ namespace PersonnelSync.Services
                 if (_databaseLogService != null)
                 {
                     await _databaseLogService.LogErrorAsync(
-                        $"同步失败：{result.TaskName}", ex, "PersonnelSync", "SyncBasePeopleFromVps", null, "ExecuteSync");
+                        $"同步失败：{result.TaskName}", ex, "UserSync", "SyncBasePeopleFromVps", null, "ExecuteSync");
                 }
             }
 
@@ -887,12 +887,12 @@ namespace PersonnelSync.Services
                     if (success)
                     {
                         await _databaseLogService.LogInformationAsync(
-                            result.Message, "PersonnelSync", "UpdateEmptyPasswords", null, "ExecuteSync");
+                            result.Message, "UserSync", "UpdateEmptyPasswords", null, "ExecuteSync");
                     }
                     else
                     {
                         await _databaseLogService.LogErrorAsync(
-                            result.Message, null, "PersonnelSync", "UpdateEmptyPasswords", null, "ExecuteSync");
+                            result.Message, null, "UserSync", "UpdateEmptyPasswords", null, "ExecuteSync");
                     }
                 }
             }
@@ -909,7 +909,7 @@ namespace PersonnelSync.Services
                 if (_databaseLogService != null)
                 {
                     await _databaseLogService.LogErrorAsync(
-                        $"更新密码失败：{result.TaskName}", ex, "PersonnelSync", "UpdateEmptyPasswords", null, "ExecuteSync");
+                        $"更新密码失败：{result.TaskName}", ex, "UserSync", "UpdateEmptyPasswords", null, "ExecuteSync");
                 }
             }
 

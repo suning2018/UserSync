@@ -5,7 +5,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
-namespace PersonnelSync.Services
+namespace UserSync.Services
 {
     /// <summary>
     /// 数据库日志服务

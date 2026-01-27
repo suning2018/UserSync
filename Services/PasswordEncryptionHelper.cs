@@ -2,7 +2,7 @@ using System;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace PersonnelSync.Services
+namespace UserSync.Services
 {
     /// <summary>
     /// 密码加密辅助类

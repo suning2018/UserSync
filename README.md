@@ -1,52 +1,61 @@
-# 人员数据同步程序
+# 用户数据同步程序 (UserSync)
+
+基于 .NET 8.0 的用户数据同步控制台应用程序，用于将 `vps_empinfo_mes` 表中的数据同步到 `Sys_User` 和 `base_people` 表中，确保数据一致性。
 
 ## 项目结构
 
 ```
-人员同步/
+UserSync/
 ├── Program.cs                          # 主程序入口
-├── PersonnelSync.csproj                # 项目文件
-├── appsettings.json                    # 配置文件
-├── Services/                           # 服务类目录
+├── UserSync.csproj                     # 项目文件
+├── UserSync.sln                        # 解决方案文件
+├── appsettings.json                    # 应用程序配置
+│
+├── Services/                           # 服务层
 │   ├── PersonnelSyncService.cs        # 核心同步服务
 │   ├── DatabaseService.cs              # 数据库服务
-│   └── DatabaseLogService.cs           # 数据库日志服务
+│   ├── DatabaseLogService.cs          # 数据库日志服务
+│   ├── DbHelper.cs                     # 数据库操作辅助类
+│   ├── UserPasswordService.cs          # 用户密码服务
+│   └── PasswordEncryptionHelper.cs    # 密码加密辅助类
+│
+├── Models/                             # 数据模型
+│   └── AppSettings.cs                  # 应用程序配置模型
+│
+├── Extensions/                         # 扩展方法
+│   ├── ServiceCollectionExtensions.cs  # 服务注册扩展
+│   └── ConfigurationExtensions.cs      # 配置扩展
+│
+├── Helpers/                            # 辅助类
+│   └── ConsoleHelper.cs                 # 控制台输出辅助
+│
+├── Constants/                          # 常量定义
+│   └── ConfigKeys.cs                   # 配置键常量
+│
 ├── SQL/                                # SQL脚本目录
 │   ├── 01_TableCreation/              # 表创建脚本
-│   │   ├── create_personnel_table_sqlserver.sql
-│   │   └── insert_personnel_data_sqlserver.sql
 │   ├── 02_UserManagement/             # 用户管理脚本
-│   │   ├── generate_userlogon.sql
-│   │   ├── update_password_simple.sql
-│   │   ├── update_userlogon_password.sql
-│   │   ├── insert_missing_users.sql
-│   │   ├── user.sql
-│   │   └── generate_password_update_sql.sql
 │   ├── 03_BasePeople/                 # base_people管理脚本
-│   │   ├── update_base_people_*.sql
-│   │   ├── compare_base_people_*.sql
-│   │   └── diagnose_base_people_*.sql
 │   ├── 04_DataSync/                   # 数据同步脚本
-│   │   ├── update_sysuser_enabledmark.sql
-│   │   ├── update_jobstatus_simple.sql
-│   │   ├── update_base_people_jobstatus.sql
-│   │   ├── update_manufacturegroup_simple.sql
-│   │   └── update_mismatched_groups.sql
 │   ├── 05_Diagnostic/                 # 诊断比较脚本
-│   │   ├── compare_groups_simple.sql
-│   │   ├── diagnose_manufacturegroup.sql
-│   │   └── missing_data_report.sql
 │   └── 06_Others/                     # 其他脚本
-│       └── MaterialRequestPermission.sql
+│
+├── Data/                               # 数据文件目录
+│   ├── 湖州人员班组信息.xlsx
+│   └── 人员1.md
+│
 ├── Docs/                               # 文档目录
 │   ├── 人员同步程序使用说明.md
-│   └── 用户登录信息生成说明.md
-├── Data/                               # 数据源目录
-│   └── 人员1.md
-└── Archive/                            # 归档目录
+│   ├── 用户登录信息生成说明.md
+│   ├── 项目优化说明.md
+│   └── 项目结构说明.md
+│
+└── Archive/                            # 归档目录（已废弃的代码）
     ├── SendMaterialRequestNotice.cs
     └── UpdateUserPasswords.cs
 ```
+
+> 📖 详细的项目结构说明请查看 [Docs/项目结构说明.md](Docs/项目结构说明.md)
 
 ## 快速开始
 
@@ -107,7 +116,21 @@
 - 同步任务启用/禁用
 - 检查间隔时间
 
+## 技术特性
+
+- ✅ **依赖注入**：使用 Microsoft.Extensions.DependencyInjection
+- ✅ **强类型配置**：配置模型类，类型安全
+- ✅ **优雅关闭**：支持 CancellationToken，优雅处理程序关闭
+- ✅ **结构化日志**：使用 Serilog 进行结构化日志记录
+- ✅ **数据库日志**：支持将日志记录到数据库
+- ✅ **配置验证**：启动时验证配置完整性
+
 ## 版本历史
 
-- v2.0 (2026-01-21) - 重构为 .NET 8.0 控制台应用程序
-- v1.0 (2026-01-21) - 初始版本
+- **v2.1** (2026-01-26) - 项目结构优化，代码重构
+  - 引入依赖注入
+  - 添加强类型配置模型
+  - 优化代码组织结构
+  - 添加 CancellationToken 支持
+- **v2.0** (2026-01-21) - 重构为 .NET 8.0 控制台应用程序
+- **v1.0** (2026-01-21) - 初始版本
