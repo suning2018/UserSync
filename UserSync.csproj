@@ -12,6 +12,7 @@
   <ItemGroup>
     <Compile Remove="Archive\SendMaterialRequestNotice.cs" />
     <Compile Remove="Archive\UpdateUserPasswords.cs" />
+    <Compile Remove="Archive\SendEmployeeGroupNotice.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -26,7 +27,7 @@
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Options" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="8.0.2" />
     <PackageReference Include="Serilog" Version="4.1.0" />
     <PackageReference Include="Serilog.Extensions.Logging" Version="8.0.0" />
     <PackageReference Include="Serilog.Sinks.File" Version="5.0.0" />

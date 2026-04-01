@@ -165,24 +165,29 @@ public async Task<IHttpActionResult> SendEmployeeDayAttendanceNotice(dynamic jso
             var userIds = perm.UserIDs.Split(',').Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
             if (userIds.Count == 0) continue;
 
-            // 构建SQL查询，替换日期和部门参数
+            // 构建SQL查询，替换日期参数
             string sqlQuery = perm.SQLQuery;
             // 如果SQL中包含占位符，进行替换
             sqlQuery = sqlQuery.Replace("{yymmdd}", yymmdd);
             
-            // 使用正则表达式替换SQL中的日期和部门参数
-            // 替换日期格式：yymmdd='20260121'
+            // 使用正则表达式替换SQL中的日期参数
+            // 替换日期格式：yymmdd='20260121' 或 @日期
             sqlQuery = System.Text.RegularExpressions.Regex.Replace(sqlQuery, 
                 @"yymmdd\s*=\s*'(\d{8})'", 
                 $"yymmdd='{yymmdd}'", 
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            
+            // 替换参数化查询中的 @日期
+            sqlQuery = System.Text.RegularExpressions.Regex.Replace(sqlQuery, 
+                @"@日期", 
+                $"'{yymmdd}'", 
                 System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
             // 执行SQL查询，直接返回DataTable
             var dt = new DataTable();
             try
             {
-                // 如果SQL中包含参数化查询，需要处理参数
-                // 这里假设SQL可以直接执行，如果需要参数化，需要根据实际情况调整
+                // 执行SQL查询（已替换参数）
                 dt = db.MaterialRequest_Permission.SqlQuery(sqlQuery, null);
             }
             catch (Exception ex)
@@ -198,118 +203,117 @@ public async Task<IHttpActionResult> SendEmployeeDayAttendanceNotice(dynamic jso
                 continue;
             }
 
-            // 按部门分组统计出勤情况
-            TimeSpan lateThreshold = TimeSpan.Parse("08:00");  // 迟到阈值：08:00
-            
-            // 使用字典存储每个部门的统计数据
-            var deptStats = new Dictionary<string, Dictionary<string, int>>();
+            // 按班组分组统计出勤情况（使用SQL查询返回的"员工状态"字段）
+            // 使用字典存储每个班组的统计数据
+            var groupStats = new Dictionary<string, Dictionary<string, int>>();
             
             // 初始化总体统计
             int totalCount = dt.Rows.Count;
-            int totalPresentCount = 0;
-            int totalAbsentCount = 0;
-            int totalLateCount = 0;
+            int totalNormalCount = 0;      // 正常
+            int totalLateCount = 0;        // 迟到
+            int totalAbsentCount = 0;      // 旷工
+            int totalLeaveCount = 0;       // 请假
+            int totalUnknownCount = 0;     // 未知
 
             foreach (System.Data.DataRow row in dt.Rows)
             {
-                string gdname = row["gdname"]?.ToString() ?? "未知部门";
-                string go1 = row["go1"]?.ToString() ?? "";
+                // 获取班组（优先使用SQL返回的"班组"字段，如果没有则使用"班组"列名）
+                string groupName = row["班组"]?.ToString() ?? row["gdname"]?.ToString() ?? "未知班组";
+                // 获取员工状态（SQL查询已计算好）
+                string employeeStatus = row["员工状态"]?.ToString() ?? "未知";
                 
-                // 如果部门不存在，初始化统计
-                if (!deptStats.ContainsKey(gdname))
+                // 如果班组不存在，初始化统计
+                if (!groupStats.ContainsKey(groupName))
                 {
-                    deptStats[gdname] = new Dictionary<string, int>
+                    groupStats[groupName] = new Dictionary<string, int>
                     {
                         { "total", 0 },
-                        { "present", 0 },
+                        { "normal", 0 },
+                        { "late", 0 },
                         { "absent", 0 },
-                        { "late", 0 }
+                        { "leave", 0 },
+                        { "unknown", 0 }
                     };
                 }
                 
-                deptStats[gdname]["total"]++;
+                groupStats[groupName]["total"]++;
                 
-                // 判断出勤状态（go1是时间格式，大于08:00为迟到，没有数据为缺勤）
-                if (string.IsNullOrWhiteSpace(go1))
+                // 根据员工状态进行统计
+                if (employeeStatus.StartsWith("正常"))
                 {
-                    deptStats[gdname]["absent"]++;
+                    groupStats[groupName]["normal"]++;
+                    totalNormalCount++;
+                }
+                else if (employeeStatus.StartsWith("迟到"))
+                {
+                    groupStats[groupName]["late"]++;
+                    totalLateCount++;
+                }
+                else if (employeeStatus.StartsWith("旷工"))
+                {
+                    groupStats[groupName]["absent"]++;
                     totalAbsentCount++;
+                }
+                else if (employeeStatus.StartsWith("请假"))
+                {
+                    groupStats[groupName]["leave"]++;
+                    totalLeaveCount++;
                 }
                 else
                 {
-                    // 尝试解析时间（go1是时间格式，如"08:00"）
-                    try
-                    {
-                        // 处理时间格式，支持 "08:00"、"8:00"、"08:00:00"、"8:0" 等格式
-                        string timeStr = go1.Trim();
-                        
-                        // 如果包含秒，去掉秒部分
-                        if (timeStr.Contains(":"))
-                        {
-                            string[] parts = timeStr.Split(':');
-                            if (parts.Length >= 2)
-                            {
-                                // 格式化为 HH:mm
-                                int hours = int.Parse(parts[0]);
-                                int minutes = int.Parse(parts[1]);
-                                timeStr = $"{hours:D2}:{minutes:D2}";
-                            }
-                        }
-                        
-                        TimeSpan checkInTime = TimeSpan.Parse(timeStr);
-                        
-                        if (checkInTime > lateThreshold)
-                        {
-                            deptStats[gdname]["late"]++;
-                            deptStats[gdname]["present"]++;
-                            totalLateCount++;
-                            totalPresentCount++;
-                        }
-                        else
-                        {
-                            deptStats[gdname]["present"]++;
-                            totalPresentCount++;
-                        }
-                    }
-                    catch
-                    {
-                        // 如果时间解析失败，视为缺勤
-                        deptStats[gdname]["absent"]++;
-                        totalAbsentCount++;
-                    }
+                    groupStats[groupName]["unknown"]++;
+                    totalUnknownCount++;
                 }
             }
 
-            // 构建文本消息内容（按部门分组显示统计信息）
+            // 构建文本消息内容（按班组分组显示统计信息）
             var textContent = new System.Text.StringBuilder();
             textContent.AppendLine("您好！");
             textContent.AppendLine($"【员工日出勤通知】");
             textContent.AppendLine($"日期：{yymmdd}");
             textContent.AppendLine("━━━━━━━━━━━━━━━━━━━━");
             
-            // 按部门显示统计信息
-            foreach (var dept in deptStats.OrderBy(x => x.Key))
+            // 按班组显示统计信息
+            foreach (var group in groupStats.OrderBy(x => x.Key))
             {
-                string deptName = dept.Key;
-                var stats = dept.Value;
-                int deptTotal = stats["total"];
-                int deptPresent = stats["present"];
-                int deptAbsent = stats["absent"];
-                int deptLate = stats["late"];
-                double attendanceRate = deptTotal > 0 ? (deptPresent * 100.0 / deptTotal) : 0;
+                string groupName = group.Key;
+                var stats = group.Value;
+                int groupTotal = stats["total"];
+                int groupNormal = stats["normal"];
+                int groupLate = stats["late"];
+                int groupAbsent = stats["absent"];
+                int groupLeave = stats["leave"];
+                int groupUnknown = stats["unknown"];
+                int groupPresent = groupNormal + groupLate;  // 实到人数 = 正常 + 迟到
+                double attendanceRate = groupTotal > 0 ? (groupPresent * 100.0 / groupTotal) : 0;
                 
-                textContent.AppendLine($"【{deptName}】");
-                textContent.AppendLine($"应到：{deptTotal}人 | 实到：{deptPresent}人 | 缺勤：{deptAbsent}人 | 迟到：{deptLate}人 | 出勤率：{attendanceRate:F1}%");
+                textContent.AppendLine($"【{groupName}】");
+                textContent.AppendLine($"应到：{groupTotal}人 | 实到：{groupPresent}人（正常：{groupNormal}人，迟到：{groupLate}人）");
+                // 如果未知状态为0，则不显示
+                if (groupUnknown > 0)
+                {
+                    textContent.AppendLine($"缺勤：{groupAbsent}人 | 请假：{groupLeave}人 | 未知：{groupUnknown}人 | 出勤率：{attendanceRate:F1}%");
+                }
+                else
+                {
+                    textContent.AppendLine($"缺勤：{groupAbsent}人 | 请假：{groupLeave}人 | 出勤率：{attendanceRate:F1}%");
+                }
                 textContent.AppendLine("");
             }
             
             // 总体统计
+            int totalPresentCount = totalNormalCount + totalLateCount;  // 实到人数 = 正常 + 迟到
             textContent.AppendLine("━━━━━━━━━━━━━━━━━━━━");
             textContent.AppendLine($"【总计】");
             textContent.AppendLine($"应到人数：{totalCount}人");
-            textContent.AppendLine($"实到人数：{totalPresentCount}人");
+            textContent.AppendLine($"实到人数：{totalPresentCount}人（正常：{totalNormalCount}人，迟到：{totalLateCount}人）");
             textContent.AppendLine($"缺勤人数：{totalAbsentCount}人");
-            textContent.AppendLine($"迟到人数：{totalLateCount}人");
+            textContent.AppendLine($"请假人数：{totalLeaveCount}人");
+            // 如果未知状态为0，则不显示
+            if (totalUnknownCount > 0)
+            {
+                textContent.AppendLine($"未知状态：{totalUnknownCount}人");
+            }
             textContent.AppendLine($"出勤率：{(totalCount > 0 ? (totalPresentCount * 100.0 / totalCount).ToString("F1") : "0")}%");
             textContent.AppendLine("━━━━━━━━━━━━━━━━━━━━");
             textContent.AppendLine("");
@@ -323,7 +327,7 @@ public async Task<IHttpActionResult> SendEmployeeDayAttendanceNotice(dynamic jso
                 text = new JUWX.DataController.Sys.textclass() { content = textContent.ToString() }
             });
             
-            LogHelper.WriteLog($"发送文本消息（权限{perm.PermissionLevel}，用户数{userIds.Count}，部门数{deptStats.Count}，应到{totalCount}人，实到{totalPresentCount}人，缺勤{totalAbsentCount}人，迟到{totalLateCount}人）");
+            LogHelper.WriteLog($"发送文本消息（权限{perm.PermissionLevel}，用户数{userIds.Count}，班组数{groupStats.Count}，应到{totalCount}人，实到{totalPresentCount}人（正常{totalNormalCount}人，迟到{totalLateCount}人），缺勤{totalAbsentCount}人，请假{totalLeaveCount}人）");
 
             // 生成并发送Excel文件
             string fileName = $"员工日出勤清单_{yymmdd}_权限{perm.PermissionLevel}_{dt.Rows.Count}条记录_{DateTime.Now:yyyyMMddHHmmss}.xls";
@@ -346,11 +350,14 @@ public async Task<IHttpActionResult> SendEmployeeDayAttendanceNotice(dynamic jso
                 userCount = userIds.Count, 
                 userIds = perm.UserIDs, 
                 dataCount = dt.Rows.Count,
-                deptCount = deptStats.Count,
+                groupCount = groupStats.Count,
                 totalCount = totalCount,
                 presentCount = totalPresentCount,
-                absentCount = totalAbsentCount,
+                normalCount = totalNormalCount,
                 lateCount = totalLateCount,
+                absentCount = totalAbsentCount,
+                leaveCount = totalLeaveCount,
+                unknownCount = totalUnknownCount,
                 fileName = fileName,
                 yymmdd = yymmdd
             });

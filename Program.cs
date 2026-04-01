@@ -92,7 +92,7 @@ namespace UserSync
                 // 获取检查间隔配置
                 var checkIntervalSeconds = appSettings.SyncSettings.CheckIntervalSeconds;
                 var enableAutoSync = appSettings.SyncSettings.EnableAutoSync;
-
+                
                 Console.WriteLine($"检查间隔: {checkIntervalSeconds} 秒");
                 Console.WriteLine($"自动同步: {(enableAutoSync ? "启用" : "禁用")}");
                 Console.WriteLine("程序将持续监控并执行用户数据同步任务。");
@@ -135,7 +135,7 @@ namespace UserSync
                         var logger = _serviceProvider.GetService<ILogger<Program>>();
                         var databaseLogService = _serviceProvider.GetService<DatabaseLogService>();
                         if (logger != null)
-                        {
+                    {
                             await LogErrorAsync(databaseLogService, logger, "程序执行出错", ex, "Program", "Main");
                         }
                     }
@@ -171,7 +171,7 @@ namespace UserSync
         {
             int loopCount = 0;
             ConsoleHelper.WriteLineWithTimestamp($"持续监控已启动，将每 {checkIntervalSeconds} 秒检查一次...\n");
-
+            
             while (_isRunning && !cancellationToken.IsCancellationRequested)
             {
                 try
@@ -181,7 +181,7 @@ namespace UserSync
                         ConsoleHelper.WriteLineWithTimestamp("检测到停止信号，退出循环");
                         break;
                     }
-
+                    
                     loopCount++;
                     var startTime = DateTime.Now;
                     ConsoleHelper.WriteLineWithTimestamp($"开始第 {loopCount} 次同步...");
@@ -198,7 +198,7 @@ namespace UserSync
                         try
                         {
                             await Task.Delay(checkIntervalSeconds * 1000, cancellationToken);
-
+                            
                             if (!_isRunning || cancellationToken.IsCancellationRequested)
                             {
                                 ConsoleHelper.WriteLineWithTimestamp("检测到停止信号，退出循环");
@@ -245,7 +245,7 @@ namespace UserSync
                     }
                 }
             }
-
+            
             ConsoleHelper.WriteLineWithTimestamp($"持续监控已停止（共执行 {loopCount} 次同步）");
         }
 
@@ -345,7 +345,7 @@ namespace UserSync
             ServiceProvider serviceProvider,
             DatabaseLogService? databaseLogService,
             ILogger logger)
-        {
+            {
             try
             {
                 Console.WriteLine("=== 开始更新所有用户密码为默认密码123456 ===\n");
@@ -357,7 +357,7 @@ namespace UserSync
                 Console.WriteLine("1. 只更新密码为空的用户（推荐）");
                 Console.WriteLine("2. 更新所有用户的密码（包括已有密码的）");
                 Console.Write("请输入选项 (1/2，默认1): ");
-
+                
                 string? input = Console.ReadLine();
                 bool updateAll = input?.Trim() == "2";
 
