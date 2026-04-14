@@ -51,6 +51,5 @@ namespace UserSync.Models
         public bool SyncBasePeopleSysUser { get; set; } = true;
         public bool SyncSysUserEnabledMark { get; set; } = true;
         public bool SyncBasePeopleJobStatus { get; set; } = true;
-        public bool SyncBasePeopleManufactureGroup { get; set; } = false;
     }
 }

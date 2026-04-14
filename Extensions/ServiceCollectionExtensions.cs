@@ -69,17 +69,26 @@ namespace UserSync.Extensions
         /// <summary>
         /// 配置 Serilog 日志
         /// </summary>
-        public static IServiceCollection AddSerilogLogging(this IServiceCollection services, IConfiguration configuration)
+        /// <param name="writeToConsole">为 false 时仅写文件（适合 Windows 服务）；交互式工具可设为 true。</param>
+        public static IServiceCollection AddSerilogLogging(this IServiceCollection services, IConfiguration configuration, bool writeToConsole = false)
         {
             var logSettings = configuration.GetSection("LogSettings").Get<LogSettings>() ?? new LogSettings();
-            Directory.CreateDirectory(logSettings.LogPath);
+            var logDir = Path.IsPathRooted(logSettings.LogPath)
+                ? logSettings.LogPath
+                : Path.Combine(AppContext.BaseDirectory, logSettings.LogPath);
+            Directory.CreateDirectory(logDir);
 
             var loggerConfiguration = new LoggerConfiguration()
                 .MinimumLevel.Information()
-                .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning)
-                .WriteTo.Console()
-                .WriteTo.File(
-                    Path.Combine(logSettings.LogPath, logSettings.LogFileName),
+                .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning);
+
+            if (writeToConsole)
+            {
+                loggerConfiguration = loggerConfiguration.WriteTo.Console();
+            }
+
+            loggerConfiguration = loggerConfiguration.WriteTo.File(
+                    Path.Combine(logDir, logSettings.LogFileName),
                     rollingInterval: Serilog.RollingInterval.Day,
                     retainedFileCountLimit: logSettings.RetainDays,
                     outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}");

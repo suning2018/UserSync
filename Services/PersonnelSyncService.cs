@@ -19,6 +19,25 @@ namespace UserSync.Services
         private readonly UserPasswordService? _passwordService;
         private readonly ILoggerFactory? _loggerFactory;
 
+        /// <summary>
+        /// vps_empinfo_mes.gdname4 参与同步的制造部（与下方 Factory 映射一致）。
+        /// </summary>
+        private const string SqlVpsManufactureGdname4Predicate =
+            @"ve.gdname4 IN (N'广东创世纪制造部', N'湖州制造部', N'沙田制造部', N'宜宾制造部', N'越南制造部')";
+
+        /// <summary>
+        /// 按 gdname4 写入 Sys_User.Factory / base_people.Factory。广东创世纪制造部固定为字面值 1030,1010。
+        /// </summary>
+        private const string SqlSelectFactoryByGdname4 = @"
+                        CASE ve.gdname4
+                            WHEN N'广东创世纪制造部' THEN N'1030,1010'
+                            WHEN N'湖州制造部' THEN N'1060'
+                            WHEN N'沙田制造部' THEN N'1030'
+                            WHEN N'宜宾制造部' THEN N'1040'
+                            WHEN N'越南制造部' THEN N'2310'
+                            ELSE N''
+                        END";
+
         public PersonnelSyncService(
             IConfiguration configuration,
             ILogger<PersonnelSyncService> logger,
@@ -111,12 +130,6 @@ namespace UserSync.Services
                 results.Add(await SyncBasePeopleJobStatusAsync());
             }
 
-            // 同步 base_people.ManufactureGroup（可选）
-            if (syncSettings.GetValue<bool>("SyncBasePeopleManufactureGroup", false))
-            {
-                results.Add(await SyncBasePeopleManufactureGroupAsync());
-            }
-
             return results;
         }
 
@@ -136,7 +149,7 @@ namespace UserSync.Services
                     SET su.F_EnabledMark = 0
                     FROM Sys_User su
                     INNER JOIN vps_empinfo_mes ve ON su.F_Account = ve.empcode
-                    WHERE ve.gdname4 = N'湖州制造部'  -- 只同步湖州制造部
+                    WHERE " + SqlVpsManufactureGdname4Predicate + @"
                         AND ve.isactive = 0
                         AND (su.F_EnabledMark IS NULL OR su.F_EnabledMark <> 0);
                 ";
@@ -197,7 +210,7 @@ namespace UserSync.Services
                     END
                     FROM base_people bp
                     INNER JOIN vps_empinfo_mes ve ON bp.Code = ve.empcode
-                    WHERE ve.gdname4 = N'湖州制造部'  -- 只同步湖州制造部
+                    WHERE " + SqlVpsManufactureGdname4Predicate + @"
                         AND ve.isactive IS NOT NULL
                         AND (
                             bp.JobStatus IS NULL
@@ -291,88 +304,6 @@ namespace UserSync.Services
                 {
                     await _databaseLogService.LogErrorAsync(
                         $"同步失败：{result.TaskName}", ex, "UserSync", "SyncBasePeopleSysUser", null, "ExecuteSync");
-                }
-            }
-
-            return result;
-        }
-
-        /// <summary>
-        /// 同步 base_people 表的 ManufactureGroup 字段
-        /// 根据 personnel.group_name 更新 base_people.ManufactureGroup
-        /// </summary>
-        public async Task<SyncResult> SyncBasePeopleManufactureGroupAsync()
-        {
-            var result = new SyncResult { TaskName = "同步base_people.ManufactureGroup" };
-            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-
-            try
-            {
-                // 先更新为空的记录
-                string sql1 = @"
-                    UPDATE bp
-                    SET bp.ManufactureGroup = bmgf.ID
-                    FROM base_people bp
-                    INNER JOIN personnel per ON bp.Code = per.employee_id
-                    INNER JOIN Base_ManufactureGroupFiles bmgf ON per.group_name = bmgf.ManufactureGroup
-                    WHERE (bp.ManufactureGroup IS NULL OR bp.ManufactureGroup = '')
-                        AND per.group_name IS NOT NULL;
-                ";
-
-                // 再更新不一致的记录（排除特定组别）
-                string sql2 = @"
-                    UPDATE bp
-                    SET bp.ManufactureGroup = bmgf.ID
-                    FROM base_people bp
-                    INNER JOIN personnel per ON bp.Code = per.employee_id
-                    INNER JOIN Base_ManufactureGroupFiles bmgf ON per.group_name = bmgf.ManufactureGroup
-                    LEFT JOIN Base_ManufactureGroupFiles bmgf_current ON bp.ManufactureGroup = bmgf_current.ID
-                    WHERE bp.ManufactureGroup IS NOT NULL
-                        AND bp.ManufactureGroup <> ''
-                        AND bmgf_current.ManufactureGroup IS NOT NULL
-                        AND bmgf_current.ManufactureGroup <> per.group_name
-                        AND per.group_name IS NOT NULL
-                        AND bmgf_current.ManufactureGroup NOT IN (N'自动化光机组', N'光机主轴箱组')
-                        AND per.group_name NOT IN (N'自动化光机组', N'光机主轴箱组');
-                ";
-
-                var (affectedRows1, affectedRows2) = await _dbHelper.ExecuteTransactionAsync(async transaction =>
-                {
-                    int rows1 = await _dbHelper.ExecuteNonQueryAsync(sql1, transaction);
-                    int rows2 = await _dbHelper.ExecuteNonQueryAsync(sql2, transaction);
-                    return (rows1, rows2);
-                });
-
-                stopwatch.Stop();
-
-                result.AffectedRows = affectedRows1 + affectedRows2;
-                result.Success = true;
-                result.Message = $"成功更新 {result.AffectedRows} 条记录的 ManufactureGroup 字段（空值更新：{affectedRows1}，不一致更新：{affectedRows2}）";
-                result.ExecutionDuration = stopwatch.ElapsedMilliseconds;
-
-                _logger.LogInformation("[{TaskName}] {Message}, 耗时: {Duration}ms", 
-                    result.TaskName, result.Message, result.ExecutionDuration);
-                
-                if (_databaseLogService != null)
-                {
-                    await _databaseLogService.LogInformationAsync(
-                        result.Message, "UserSync", "SyncBasePeopleManufactureGroup", null, "ExecuteSync");
-                }
-            }
-            catch (Exception ex)
-            {
-                stopwatch.Stop();
-                result.Success = false;
-                result.Message = $"同步失败：{ex.Message}";
-                result.Exception = ex;
-                result.ExecutionDuration = stopwatch.ElapsedMilliseconds;
-
-                _logger.LogError(ex, "[{TaskName}] 同步失败", result.TaskName);
-                
-                if (_databaseLogService != null)
-                {
-                    await _databaseLogService.LogErrorAsync(
-                        $"同步失败：{result.TaskName}", ex, "UserSync", "SyncBasePeopleManufactureGroup", null, "ExecuteSync");
                 }
             }
 
@@ -537,11 +468,11 @@ namespace UserSync.Services
                         0 AS isReSet,
                         NULL AS Company,
                         NULL AS isJIT,
-                        N'1060' AS Factory,
+                        " + SqlSelectFactoryByGdname4 + @" AS Factory,
                         NULL AS MRPControl
                     FROM vps_empinfo_mes ve
                     LEFT JOIN Sys_User su ON ve.empcode = su.F_Account
-                    WHERE ve.gdname4 = N'湖州制造部'  -- 只同步湖州制造部
+                    WHERE " + SqlVpsManufactureGdname4Predicate + @"
                         AND ve.isactive = 1  -- 在制员工
                         AND su.ID IS NULL;  -- 在Sys_User中不存在
                 ";
@@ -804,15 +735,15 @@ namespace UserSync.Services
                         NULL AS BankName,
                         NULL AS InstructID,
                         N'' AS RankCode,
-                        NULL AS ManufactureGroup,  -- 后续通过 SyncBasePeopleManufactureGroupAsync 更新
-                        N'1060' AS Factory,
+                        NULL AS ManufactureGroup,  -- 不同步 ManufactureGroup
+                        " + SqlSelectFactoryByGdname4 + @" AS Factory,
                         NULL AS PositionFL,
                         NULL AS PositionLevel,
                         NULL AS PositionNew,
                         NULL AS PositionID
                     FROM vps_empinfo_mes ve
                     LEFT JOIN base_people bp ON ve.empcode = bp.Code
-                    WHERE ve.gdname4 = N'湖州制造部'  -- 只同步湖州制造部
+                    WHERE " + SqlVpsManufactureGdname4Predicate + @"
                         AND ve.isactive = 1  -- 在制员工
                         AND bp.Code IS NULL;  -- 在base_people中不存在
                 ";
