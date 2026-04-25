@@ -77,6 +77,6 @@ SELECT
     '更新后状态统计' AS Description
 FROM base_people bp
 INNER JOIN vps_empinfo_mes ve ON bp.Code = ve.empcode
-WHERE ve.gdname4 = N'湖州制造部';
+WHERE ve.gdname4 = N'湖州制造总部';
 
 GO

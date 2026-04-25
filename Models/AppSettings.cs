@@ -36,7 +36,27 @@ namespace UserSync.Models
     {
         public int CheckIntervalSeconds { get; set; } = 3600;
         public bool EnableAutoSync { get; set; } = true;
+
+        /// <summary>
+        /// vps_empinfo_mes.gdname4 与写入 Sys_User/base_people 的 Factory 字面值对应；顺序决定 CASE 分支优先级。
+        /// </summary>
+        public List<ManufactureGdname4FactoryItem> ManufactureGdname4Factories { get; set; } = new();
+
+        /// <summary>
+        /// 未出现在 <see cref="ManufactureGdname4Factories"/> 中的 gdname4 对应的 Factory（通常为空字符串）。
+        /// </summary>
+        public string ManufactureGdname4DefaultFactory { get; set; } = string.Empty;
+
         public SyncTasks SyncTasks { get; set; } = new();
+    }
+
+    /// <summary>
+    /// 制造部 gdname4 与 Factory 映射（来自 appsettings.json）。
+    /// </summary>
+    public class ManufactureGdname4FactoryItem
+    {
+        public string Gdname4 { get; set; } = string.Empty;
+        public string Factory { get; set; } = string.Empty;
     }
 
     /// <summary>

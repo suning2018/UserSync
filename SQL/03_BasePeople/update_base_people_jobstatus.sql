@@ -89,7 +89,7 @@ END
 FROM base_people bp
 INNER JOIN vps_empinfo_mes ve ON bp.Code = ve.empcode
 WHERE 
-    ve.gdname4 = N'湖州制造部'
+    ve.gdname4 = N'湖州制造总部'
     AND ve.isactive IS NOT NULL
     AND (
         -- 需要更新的情况
@@ -145,7 +145,7 @@ SELECT
 FROM base_people bp
 INNER JOIN vps_empinfo_mes ve ON bp.Code = ve.empcode
 WHERE 
-    ve.gdname4 = N'湖州制造部'
+    ve.gdname4 = N'湖州制造总部'
     AND ve.isactive IS NOT NULL
     AND (
         (ve.isactive = 0 AND bp.JobStatus <> 1)

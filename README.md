@@ -161,17 +161,14 @@ sc.exe start UserSync
 
 **不再包含** `base_people.ManufactureGroup` 的程序内同步（该任务已从代码中移除）。
 
-## 制造部与 Factory 范围（`PersonnelSyncService`）
+## 制造部与 Factory 范围（`appsettings.json`）
 
-同步 SQL 中通过 `vps_empinfo_mes.gdname4` 限定制造部，并对 `Sys_User.Factory` / `base_people.Factory` 按部门映射，例如：
+在 **`SyncSettings:ManufactureGdname4Factories`** 中配置数组，每项为 **`Gdname4`**（与视图 `vps_empinfo_mes.gdname4` 完全一致）与 **`Factory`**（写入 `Sys_User` / `base_people` 的字面值）。程序据此生成 `ve.gdname4 IN (...)` 与 `CASE ve.gdname4 ... END`。
 
-- 广东创世纪制造部 → `1030,1010`（字面值）
-- 湖州制造部 → `1060`
-- 沙田制造部 → `1030`
-- 宜宾制造部 → `1040`
-- 越南制造部 → `2310`
+- **`SyncSettings:ManufactureGdname4DefaultFactory`**：未匹配任何已配置 `Gdname4` 时使用的 Factory（常见为空字符串 `""`）。
+- 数组**顺序**决定 `CASE` 中 `WHEN` 的先后；同一 `Gdname4` 重复配置时以**先出现**的为准。
 
-具体以 `PersonnelSyncService` 内 `SqlVpsManufactureGdname4Predicate`、`SqlSelectFactoryByGdname4` 为准。
+默认示例见仓库内 `appsettings.json`；上线后按实际部门名称与工厂编码修改即可。
 
 ## 配置说明（`appsettings.json`）
 

@@ -1,8 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using UserSync.Extensions;
+using UserSync.Models;
 
 namespace UserSync.Services
 {
@@ -19,24 +23,11 @@ namespace UserSync.Services
         private readonly UserPasswordService? _passwordService;
         private readonly ILoggerFactory? _loggerFactory;
 
-        /// <summary>
-        /// vps_empinfo_mes.gdname4 参与同步的制造部（与下方 Factory 映射一致）。
-        /// </summary>
-        private const string SqlVpsManufactureGdname4Predicate =
-            @"ve.gdname4 IN (N'广东创世纪制造部', N'湖州制造部', N'沙田制造部', N'宜宾制造部', N'越南制造部')";
+        /// <summary>由 <see cref="SyncSettings.ManufactureGdname4Factories"/> 生成的 <c>ve.gdname4 IN (...)</c> 片段。</summary>
+        private readonly string _sqlVpsManufactureGdname4Predicate;
 
-        /// <summary>
-        /// 按 gdname4 写入 Sys_User.Factory / base_people.Factory。广东创世纪制造部固定为字面值 1030,1010。
-        /// </summary>
-        private const string SqlSelectFactoryByGdname4 = @"
-                        CASE ve.gdname4
-                            WHEN N'广东创世纪制造部' THEN N'1030,1010'
-                            WHEN N'湖州制造部' THEN N'1060'
-                            WHEN N'沙田制造部' THEN N'1030'
-                            WHEN N'宜宾制造部' THEN N'1040'
-                            WHEN N'越南制造部' THEN N'2310'
-                            ELSE N''
-                        END";
+        /// <summary>由配置生成的 <c>CASE ve.gdname4 ... END</c>（Factory 列）。</summary>
+        private readonly string _sqlSelectFactoryByGdname4;
 
         public PersonnelSyncService(
             IConfiguration configuration,
@@ -64,6 +55,53 @@ namespace UserSync.Services
                 // 如果没有 loggerFactory，使用通用的 logger（UserPasswordService 现在支持通用 ILogger）
                 _passwordService = new UserPasswordService(configuration, logger, databaseLogService);
             }
+
+            (_sqlVpsManufactureGdname4Predicate, _sqlSelectFactoryByGdname4) =
+                BuildManufactureSqlFragments(configuration.GetAppSettings().SyncSettings);
+        }
+
+        /// <summary>将字符串嵌入 T-SQL Unicode 字面量（单引号转义）。</summary>
+        private static string SqlUnicodeLiteral(string value)
+        {
+            return "N'" + (value ?? string.Empty).Replace("'", "''") + "'";
+        }
+
+        /// <summary>根据 SyncSettings 生成 gdname4 过滤与 Factory CASE 片段。</summary>
+        private static (string Predicate, string FactoryCase) BuildManufactureSqlFragments(SyncSettings sync)
+        {
+            var items = sync.ManufactureGdname4Factories;
+            if (items == null || items.Count == 0)
+            {
+                throw new InvalidOperationException(
+                    "SyncSettings.ManufactureGdname4Factories 不能为空，请在 appsettings.json 中配置。");
+            }
+
+            var normalized = items
+                .Select(x => (Gdname4: (x.Gdname4 ?? string.Empty).Trim(), Factory: x.Factory ?? string.Empty))
+                .Where(x => !string.IsNullOrEmpty(x.Gdname4))
+                .ToList();
+            if (normalized.Count == 0)
+            {
+                throw new InvalidOperationException(
+                    "SyncSettings.ManufactureGdname4Factories 中至少需要一条非空的 Gdname4。");
+            }
+
+            var distinctGdForIn = normalized.Select(x => x.Gdname4).Distinct(StringComparer.Ordinal).ToList();
+            var inList = string.Join(", ", distinctGdForIn.Select(SqlUnicodeLiteral));
+            var predicate = "ve.gdname4 IN (" + inList + ")";
+
+            var sb = new StringBuilder();
+            sb.AppendLine();
+            sb.AppendLine("                        CASE ve.gdname4");
+            foreach (var (gd, fac) in normalized)
+            {
+                sb.AppendLine($"                            WHEN {SqlUnicodeLiteral(gd)} THEN {SqlUnicodeLiteral(fac)}");
+            }
+
+            sb.AppendLine($"                            ELSE {SqlUnicodeLiteral(sync.ManufactureGdname4DefaultFactory ?? string.Empty)}");
+            sb.Append("                        END");
+
+            return (predicate, sb.ToString());
         }
 
         /// <summary>
@@ -149,7 +187,7 @@ namespace UserSync.Services
                     SET su.F_EnabledMark = 0
                     FROM Sys_User su
                     INNER JOIN vps_empinfo_mes ve ON su.F_Account = ve.empcode
-                    WHERE " + SqlVpsManufactureGdname4Predicate + @"
+                    WHERE " + _sqlVpsManufactureGdname4Predicate + @"
                         AND ve.isactive = 0
                         AND (su.F_EnabledMark IS NULL OR su.F_EnabledMark <> 0);
                 ";
@@ -210,7 +248,7 @@ namespace UserSync.Services
                     END
                     FROM base_people bp
                     INNER JOIN vps_empinfo_mes ve ON bp.Code = ve.empcode
-                    WHERE " + SqlVpsManufactureGdname4Predicate + @"
+                    WHERE " + _sqlVpsManufactureGdname4Predicate + @"
                         AND ve.isactive IS NOT NULL
                         AND (
                             bp.JobStatus IS NULL
@@ -468,11 +506,11 @@ namespace UserSync.Services
                         0 AS isReSet,
                         NULL AS Company,
                         NULL AS isJIT,
-                        " + SqlSelectFactoryByGdname4 + @" AS Factory,
+                        " + _sqlSelectFactoryByGdname4 + @" AS Factory,
                         NULL AS MRPControl
                     FROM vps_empinfo_mes ve
                     LEFT JOIN Sys_User su ON ve.empcode = su.F_Account
-                    WHERE " + SqlVpsManufactureGdname4Predicate + @"
+                    WHERE " + _sqlVpsManufactureGdname4Predicate + @"
                         AND ve.isactive = 1  -- 在制员工
                         AND su.ID IS NULL;  -- 在Sys_User中不存在
                 ";
@@ -736,14 +774,14 @@ namespace UserSync.Services
                         NULL AS InstructID,
                         N'' AS RankCode,
                         NULL AS ManufactureGroup,  -- 不同步 ManufactureGroup
-                        " + SqlSelectFactoryByGdname4 + @" AS Factory,
+                        " + _sqlSelectFactoryByGdname4 + @" AS Factory,
                         NULL AS PositionFL,
                         NULL AS PositionLevel,
                         NULL AS PositionNew,
                         NULL AS PositionID
                     FROM vps_empinfo_mes ve
                     LEFT JOIN base_people bp ON ve.empcode = bp.Code
-                    WHERE " + SqlVpsManufactureGdname4Predicate + @"
+                    WHERE " + _sqlVpsManufactureGdname4Predicate + @"
                         AND ve.isactive = 1  -- 在制员工
                         AND bp.Code IS NULL;  -- 在base_people中不存在
                 ";
